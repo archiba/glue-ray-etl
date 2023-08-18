@@ -9,6 +9,7 @@ class FileWalker:
     @staticmethod
     def get_all_subdirectories_s3(bucket, prefix, delimiter):
         continuation_token = None
+        suffixes = []
         while True:
             if continuation_token is None:
                 res = s3.list_objects_v2(
@@ -28,16 +29,18 @@ class FileWalker:
             if res['KeyCount'] == 0:
                 break
             for content in res['CommonPrefixes']:
-                yield content['Prefix'].replace(prefix, '')
+                suffixes.append(content['Prefix'].replace(prefix, ''))
 
             # ContinuationTokenが渡されなかったらそこで終わり
             continuation_token = res.get('NextContinuationToken')
             if continuation_token is None:
                 break
+        return suffixes
 
     @staticmethod
     def get_all_files_s3(bucket, prefix):
         continuation_token = None
+        suffixes = []
         while True:
             if continuation_token is None:
                 res = s3.list_objects_v2(
@@ -55,19 +58,20 @@ class FileWalker:
             if res['KeyCount'] == 0:
                 break
             for content in res['Contents']:
-                yield content['Prefix'].replace(prefix, '')
+                suffixes.append(content['Prefix'].replace(prefix, ''))
 
             # ContinuationTokenが渡されなかったらそこで終わり
             continuation_token = res.get('NextContinuationToken')
             if continuation_token is None:
                 break
+        return suffixes
 
     @staticmethod
-    def get_all_subdirectories_local(root_dir: str):
+    def get_all_subdirectories_local(root_dir: str) -> list[str]:
         root_path = Path(root_dir)
-        return [d for d in root_path.glob("*") if d.is_dir()]
+        return [str(d.stem) for d in root_path.glob("*") if d.is_dir()]
 
     @staticmethod
-    def get_all_files_local(root_dir: str):
+    def get_all_files_local(root_dir: str) -> list[str]:
         root_path = Path(root_dir)
-        return [f for f in root_path.rglob("*") if f.is_file()]
+        return [str(f.name) for f in root_path.rglob("*") if f.is_file()]

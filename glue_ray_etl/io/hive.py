@@ -1,6 +1,7 @@
 from typing import Optional, Any, Callable
 
 import pandas
+import numpy
 import pyarrow
 import ray
 from ray.data import Dataset
@@ -67,9 +68,9 @@ class HiveIO:
         def wrapped_function(*args):
             try:
                 fn(*args)
-                return {'status': [True]}
+                return {'status': numpy.array([True])}
             except:
-                return {'status': [False]}
+                return {'status': numpy.array([False])}
 
         return wrapped_function
 
