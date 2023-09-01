@@ -23,9 +23,15 @@ class HiveIO:
 
     @staticmethod
     @ray.remote
-    def _read_df_block(data_path):
+    def _read_df_block(data_path, partition_keys: dict[str, Any], load_partition_keys: bool = False):
         try:
-            return pandas.read_parquet(data_path, partitioning=None)
+            df = pandas.read_parquet(data_path, partitioning=None)
+            if not load_partition_keys:
+                return df
+            df_length = len(df)
+            for partition_key, partition_value in partition_keys.items():
+                df[partition_key] = [partition_value] * df_length
+            return df
         except:
             return pandas.DataFrame()
 
@@ -33,11 +39,12 @@ class HiveIO:
     def read_hive_parquet(root_dir: str,
                           keys: list[dict[str, Any]],
                           key_formatters: Optional[dict[str, Callable[[Any], str]]] = None,
-                          path_separator: str = '/'):
+                          path_separator: str = '/',
+                          load_partition_keys: bool = False):
         pandas_df_refs = []
         for set_of_key in keys:
             path = HiveIO._build_hive_data_ref(root_dir, set_of_key, key_formatters, path_separator)
-            pandas_df_refs.append(HiveIO._read_df_block.remote(path))
+            pandas_df_refs.append(HiveIO._read_df_block.remote(path, set_of_key, load_partition_keys))
         return ray.data.from_pandas_refs(pandas_df_refs)
 
     @staticmethod
@@ -85,7 +92,8 @@ class HiveIO:
                     **kwargs
                 )
             ),
-            batch_format='pandas'
+            batch_format='pandas',
+            batch_size=None
         )
         return writer_blocks.fully_executed()
 
@@ -122,4 +130,4 @@ class HiveLikeBlockWritePathProvider(BlockWritePathProvider):
         if self.add_dataset_uuid_suffix:
             suffixes.append(dataset_uuid)
         keys = {key: block[key].iloc[0] for key in self.hive_keys}
-        return build_hive_data_ref(base_path, keys, self.key_formatters, self.path_separator)
+        return HiveIO._build_hive_data_ref(base_path, keys, self.key_formatters, self.path_separator)

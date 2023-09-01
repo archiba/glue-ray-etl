@@ -29,7 +29,10 @@ class FileWalker:
             if res['KeyCount'] == 0:
                 break
             for content in res['CommonPrefixes']:
-                suffixes.append(content['Prefix'].replace(prefix, ''))
+                p = content['Prefix'].replace(prefix, '')
+                if p.endswith(delimiter):
+                    p = p[:-1]
+                suffixes.append(p)
 
             # ContinuationTokenが渡されなかったらそこで終わり
             continuation_token = res.get('NextContinuationToken')
